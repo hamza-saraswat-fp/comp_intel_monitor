@@ -1,0 +1,19 @@
+{
+  "name": "comp-intel-monitor",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Competitor Intel — Firecrawl /monitor pilot, and (later) the webhook receiver + Managed Agent glue.",
+  "scripts": {
+    "create-monitors": "tsx src/scripts/create-monitors.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@mendable/firecrawl-js": "^4.25.2",
+    "dotenv": "^17.4.2"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.2",
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3"
+  }
+}
