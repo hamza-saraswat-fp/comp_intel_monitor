@@ -1,0 +1,44 @@
+{
+  "_note": "SYNTHESIZED fixture (not a real Firecrawl capture). A genuine meaningful:true AI launch had not landed during the pilot window, so this fabricates one — ServiceTitan shipping a brand-new 'AI Permit Assistant' (NOT in knownAiProducts) — to exercise the agent's SIGNIFICANT path and the dedup guardrail in the dry-run. Shape matches docs/firecrawl-payloads.md.",
+  "success": true,
+  "type": "monitor.page",
+  "webhookId": "f4ce1f00-0000-4000-8000-000000000001",
+  "id": "019eab00-0000-7000-aaaa-000000000001",
+  "data": [
+    {
+      "checkId": "019eab00-0000-7000-aaaa-000000000001",
+      "currentScrapeId": "019eab00-1111-7000-aaaa-000000000002",
+      "previousScrapeId": "019eaa00-2222-7000-aaaa-000000000003",
+      "monitorId": "019ea90a-0000-708e-b9a8-5d7875af5cb9",
+      "url": "https://help.servicetitan.com/landing-page/release-notes-home",
+      "status": "changed",
+      "error": null,
+      "isMeaningful": true,
+      "judgment": {
+        "meaningful": true,
+        "confidence": "high",
+        "reason": "Net-new AI feature. The release notes add 'AI Permit Assistant', described as automatically pulling jurisdiction permit requirements and pre-filling permit applications from the job record, generally available to Trade customers this release. This is a concrete, newly shipped AI/automation capability, not present in the known products list, and not marketing copy or thought-leadership.",
+        "meaningfulChanges": [
+          {
+            "type": "added",
+            "after": "AI Permit Assistant (GA): automatically detects the permit requirements for a job's jurisdiction and pre-fills the permit application from the job record. Available to all Trade customers starting this release.",
+            "reason": "New AI automation feature shipped to GA."
+          }
+        ]
+      },
+      "diff": {
+        "text": "@@ -12,6 +12,14 @@\n ## What's new\n \n+### AI Permit Assistant (Generally Available)\n+\n+AI Permit Assistant automatically detects the permit requirements for a job's\n+jurisdiction and pre-fills the permit application directly from the job record,\n+so office staff no longer rekey permit data. Available to all Trade customers\n+starting this release. Part of the Titan Intelligence suite.\n+\n ### Scheduling improvements\n \n Minor fixes to the dispatch board drag-and-drop."
+      }
+    }
+  ],
+  "metadata": {
+    "source": "comp-intel",
+    "schemaVersion": "1",
+    "competitor": "servicetitan",
+    "competitorName": "ServiceTitan",
+    "tier": "Major",
+    "category": "FSM Platform",
+    "knownAiProducts": "Titan Intelligence, Dispatch Pro, Marketing Pro, Fleet Pro",
+    "surfaces": "{\"https://help.servicetitan.com/landing-page/release-notes-home\":\"changelog\",\"https://www.servicetitan.com/features/titan-intelligence\":\"ai\",\"https://www.servicetitan.com/blog/product-announcements\":\"blog\",\"https://www.servicetitan.com/pricing\":\"pricing\"}"
+  }
+}

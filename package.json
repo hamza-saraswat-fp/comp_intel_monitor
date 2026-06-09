@@ -5,9 +5,13 @@
   "description": "Competitor Intel — Firecrawl /monitor pilot, and (later) the webhook receiver + Managed Agent glue.",
   "scripts": {
     "create-monitors": "tsx src/scripts/create-monitors.ts",
+    "seed-memory": "tsx src/scripts/seed-memory.ts",
+    "dry-run": "tsx src/scripts/dry-run.ts",
+    "test:input-contract": "tsx src/scripts/test-input-contract.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.104.0",
     "@mendable/firecrawl-js": "^4.25.2",
     "dotenv": "^17.4.2"
   },
