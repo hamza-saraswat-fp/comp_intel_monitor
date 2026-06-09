@@ -1,0 +1,37 @@
+{
+  "success": true,
+  "type": "monitor.page",
+  "webhookId": "dc099094-3f6a-4104-ae6d-313ab0e5ee1f",
+  "id": "019ea9ae-efd4-760a-bb08-11d5311c2443",
+  "data": [
+    {
+      "checkId": "019ea9ae-efd4-760a-bb08-11d5311c2443",
+      "currentScrapeId": "019ea9ae-f2d3-72ee-978c-5ef0a6cfaaed",
+      "diff": {
+        "text": "@@ -1,4 +1,4 @@\n-[Start Free Trial](https://pro.housecallpro.com/app/signup?hcp_session_uuid=e8a2a01f-d6d3-4ff3-8473-e2df697db12b&anonymous_id=e32b4341-033e-4127-adcd-dd50e9b34735&hcp_segment_anonymous_id=hcp_33a61daf-1f2f-4171-b3ce-56ac5fe071ad&mc=OrganicSearch&msc=https0X0P+00.0000000.000000www.google.com)\n+[Start Free Trial](https://pro.housecallpro.com/app/signup?hcp_session_uuid=32c680dc-b460-462d-9f83-be114d9ac419&anonymous_id=369d6066-d40f-42ab-9586-5792b531a2aa&hcp_segment_anonymous_id=hcp_bca90315-effe-4a85-8286-825332ba2ad6&mc=OrganicSearch&msc=https0X0P+00.0000000.000000www.google.com)\n \n [Skip to content](https://www.housecallpro.com/about/newsroom/#primary)\n \n@@ -72,7 +72,7 @@\n \n ##### Join 500K+ Pros in the know\n \n-[Get TradeWire](https://gettradewire.paperform.co/?hcp_session_uuid=e8a2a01f-d6d3-4ff3-8473-e2df697db12b&anonymous_id=e32b4341-033e-4127-adcd-dd50e9b34735&hcp_segment_anonymous_id=hcp_33a61daf-1f2f-4171-b3ce-56ac5fe071ad&mc=OrganicSearch&msc=https0X0P+00.0000000.000000www.google.com&business_domain=distributor-supplier&domain_details=sherwin-williams&domain_source=marketing-declared&industry=heating-and-air-conditioning&industry_selected=air-duct-cleaning)\n\n\u2026 (truncated for sample)"
+      },
+      "error": null,
+      "isMeaningful": false,
+      "judgment": {
+        "confidence": "high",
+        "meaningful": false,
+        "meaningfulChanges": [],
+        "reason": "The changes consist of updated session/tracking parameters in URLs and the removal of several external press links from the 'Housecall Pro in the headlines' section. The removed articles, such as 'How Good Guy Plumbing Uses AI to Enhance Customer Care' and '6 Ways Home Service Pros Can Use AI Tools To Attract More Customers', are industry thought-leadership or social proof items which the goal explicitly states are not meaningful. No new AI features or product expansions were announced."
+      },
+      "monitorId": "019ea90a-91e0-708e-b9a8-5d7875af5cb9",
+      "previousScrapeId": "019ea945-5ec6-706a-a874-2c460b6154a2",
+      "status": "changed",
+      "url": "https://www.housecallpro.com/about/newsroom/"
+    }
+  ],
+  "metadata": {
+    "competitor": "housecall-pro",
+    "knownAiProducts": "CSR AI, AI Team, Analyst AI, Coach AI, Marketing AI",
+    "competitorName": "Housecall Pro",
+    "source": "comp-intel",
+    "tier": "Major",
+    "surfaces": "{\"https://www.housecallpro.com/features/ai-team/\":\"ai\",\"https://www.housecallpro.com/about/newsroom/\":\"newsroom\",\"https://www.housecallpro.com/pricing/\":\"pricing\"}",
+    "category": "FSM Platform",
+    "schemaVersion": "1"
+  }
+}

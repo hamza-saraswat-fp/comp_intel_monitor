@@ -38,23 +38,25 @@ Each `data[]` page entry:
 
 > First-ever check of a URL is `status: "new"` (baseline) — **no `diff`, no `judgment`**. Diffs/judgments appear on the *next* check when content actually changes. Our captured [`samples/monitor.page.example.json`](./samples/monitor.page.example.json) is a baseline `new`.
 
-**`diff`** — `diff.text` is a unified git-style markdown diff (`diff.json` AST may also be present). Representative `changed` example (from Firecrawl docs; we'll swap in a real one when a page first changes):
+**`diff`** — `diff.text` is a unified git-style markdown diff (a `diff.json` AST may also be present). Real captured example — Housecall Pro newsroom, judged **not meaningful** (the judge correctly filtering noise); full payload in [`samples/monitor.page.changed.example.json`](./samples/monitor.page.changed.example.json):
 
 ```json
 {
   "status": "changed",
-  "isMeaningful": true,
   "judgment": {
-    "meaningful": true,
+    "meaningful": false,
     "confidence": "high",
-    "reason": "A new AI-related capability was added.",
-    "meaningfulChanges": [
-      { "type": "added", "after": "New: AI Dispatch Assistant", "reason": "New AI feature." }
-    ]
+    "reason": "Updated session/tracking parameters in URLs and removal of external press links — e.g. 'How Good Guy Plumbing Uses AI to Enhance Customer Care' — are industry thought-leadership / social-proof items which the goal explicitly states are not meaningful. No new AI features or product expansions were announced."
   },
-  "diff": { "text": "--- previous\n+++ current\n@@ -1,5 +1,6 @@\n ...\n+New: AI Dispatch Assistant\n" }
+  "diff": { "text": "--- previous\n+++ current\n-[Get TradeWire](https://…?hcp_session_uuid=e8a2a01f…)\n+[Get TradeWire](https://…?hcp_session_uuid=32c680dc…)\n…" }
 }
 ```
+
+> A genuine `meaningful: true` example will be dropped in when a real AI launch lands — our first scheduled run produced no true-positive (see [`signal-validation.md`](./signal-validation.md)).
+
+**Observed in practice (first scheduled checks, 2026-06-09):**
+- **Tracking-param churn is the dominant noise.** Pages flip to `changed` every check purely from rotating `hcp_session_uuid` / `anonymous_id` in signup links. The judge filters these as not-meaningful (high confidence), but each still costs a judge credit. Future tweak: strip query params / exclude those blocks via scrape options.
+- **Judge reliability.** One judge call failed transiently and **defaulted to `meaningful: true` with `confidence: low`** ("Judge call failed — defaulting to meaningful"). The agent should treat **low-confidence `meaningful`** as suspect and rely on its web-verify step.
 
 **`judgment`** (Stage-1 judge output — fixed schema):
 - `meaningful` (bool), `confidence` (`high` \| `medium` \| `low`), `reason` (free text — per our goal it states **net-new vs expansion vs pre-announcement**), `meaningfulChanges[]` (`{ type: added|changed|removed, before?, after?, reason }`).

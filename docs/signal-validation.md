@@ -24,10 +24,27 @@ Confirmed that known competitor AI lives on the surfaces we monitor and matches 
 
 Conclusion: when these competitors ship or expand AI, it surfaces on a page we watch, and the goal language matches the kind of content present. The mechanism will catch the signal that matters.
 
-## What we'll watch once real diffs arrive
+## First real check results (2026-06-09)
 
-- **False positives / negatives** — first real `status: "changed"` judgments (today everything is baseline `new`). Tune the goal if noisy or missing.
-- **Judge confidence calibration** — whether `high/medium/low` tracks reality.
+The scheduled 00:00 UTC checks ran against the baseline — the first real judgments:
+
+| Competitor | Pages | Outcome |
+|---|---|---|
+| Jobber | 3 | all `same` |
+| Housecall Pro | 3 | all `changed` → **judge marked all 3 not-meaningful (high confidence)**; email auto-suppressed |
+| ServiceTitan | 4 | 1 `changed` (Titan Intelligence) → judge call failed, defaulted `meaningful` (low confidence) → false-positive email |
+
+Takeaways:
+- ✅ The judge **correctly filtered real noise** — session/tracking-ID churn and removal of thought-leadership press links — citing our goal's exclusions. When every change is noise, Firecrawl suppresses the email (verified on Housecall Pro).
+- ⚠️ Two findings (detailed in [`firecrawl-payloads.md`](./firecrawl-payloads.md)): tracking-param churn is the dominant noise source; a transient judge-call failure defaults to low-confidence `meaningful` — a false positive the Stage-2 agent will catch via web-verify.
+
+This **strengthens** the GO: the funnel demonstrably suppresses noise on real data.
+
+## What we'll watch once more diffs arrive
+
+- **False positives / negatives** — keep reviewing real `changed` judgments as they accumulate; tune the goal if noisy or missing.
+- **Judge reliability + confidence** — track judge-call failures (default-to-meaningful), whether `high/medium/low` tracks reality, and have the agent down-weight low-confidence `meaningful`.
+- **Tracking-param noise** — mitigate the `hcp_session_uuid` / `anonymous_id` churn via scrape options so we stop paying judge credits on signup-link diffs.
 - **Housecall Pro changelog gap** — no stable changelog URL yet; relying on AI Team + newsroom. Revisit `whatsnew.housecallpro.com`.
 - **Pricing-page noise** — confirm "AI-related only" holds up vs. routine price edits.
 
