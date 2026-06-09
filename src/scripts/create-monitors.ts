@@ -1,23 +1,27 @@
-// Creates the pilot Firecrawl monitors (AIO-154), one per competitor.
+// Upserts the pilot Firecrawl monitors (AIO-154 / 156 / 157), one per competitor.
 //
-// Idempotent: lists existing monitors first and skips any already created
-// (matched by name `comp-intel/<slug>`). Re-run safely after editing the URL list.
+// Idempotent: lists existing monitors first; updates the ones we already own
+// (matched by name `comp-intel/<slug>`) and creates the rest. Both paths send the
+// SAME full config (goal + schedule + notification + webhook{+metadata} + targets),
+// so updateMonitor never wipes a field regardless of patch/replace semantics.
 //
 //   npm run create-monitors
 //
 // Required env: FIRECRAWL_API_KEY, ALERT_EMAIL
-// Optional env: WEBHOOK_SITE_URL (capture payloads), MONITOR_SCHEDULE, MONITOR_TIMEZONE,
-//               RUN_NOW=true (trigger an immediate check on each monitor for verification).
+// Optional env: WEBHOOK_SITE_URL (capture payloads + carry metadata), MONITOR_SCHEDULE,
+//               MONITOR_TIMEZONE, RUN_NOW=true (trigger an immediate check for verification).
 //
-// Note: the Firecrawl plan rate-limits the monitor API (e.g. 3 req/min), so every
-// API call is wrapped in withRateLimitRetry, which honors the server's "retry after Ns".
+// Note: the Firecrawl plan rate-limits the monitor API (~3 req/min), so every API
+// call is wrapped in withRateLimitRetry, which honors the server's "retry after Ns".
 
 import 'dotenv/config';
 import Firecrawl from '@mendable/firecrawl-js';
 import {
   PILOT_COMPETITORS,
-  JUDGE_GOAL,
-  MONITOR_NAME_PREFIX,
+  buildGoal,
+  buildMetadata,
+  monitorName,
+  type PilotCompetitor,
 } from '../monitors/pilot';
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -41,8 +45,7 @@ async function withRateLimitRetry<T>(
     try {
       return await fn();
     } catch (err: any) {
-      const is429 =
-        err?.status === 429 || /rate limit/i.test(`${err?.message ?? ''}`);
+      const is429 = err?.status === 429 || /rate limit/i.test(`${err?.message ?? ''}`);
       if (!is429 || attempt >= maxAttempts) throw err;
       const text = `${err?.message ?? ''} ${err?.details?.error ?? ''}`;
       const match = text.match(/retry after (\d+)\s*s/i);
@@ -73,7 +76,27 @@ async function main(): Promise<void> {
 
   const firecrawl = new Firecrawl({ apiKey });
 
-  // Idempotency guard: find monitors we already own (name `comp-intel/<slug>`).
+  // The full monitor config — identical for create and update so nothing is wiped.
+  const buildConfig = (c: PilotCompetitor) => ({
+    name: monitorName(c),
+    schedule: { text: schedule, timezone },
+    goal: buildGoal(c),
+    notification: {
+      email: { enabled: true, recipients: [alertEmail], includeDiffs: true },
+    },
+    ...(webhookUrl
+      ? {
+          webhook: {
+            url: webhookUrl,
+            events: ['monitor.page', 'monitor.check.completed'],
+            metadata: buildMetadata(c),
+          },
+        }
+      : {}),
+    targets: [{ type: 'scrape' as const, urls: c.urls.map((u) => u.url) }],
+  });
+
+  // Idempotency: find monitors we already own (name `comp-intel/<slug>`).
   const existing = toMonitorArray(
     await withRateLimitRetry('listMonitors', () => firecrawl.listMonitors()),
   );
@@ -83,43 +106,35 @@ async function main(): Promise<void> {
   }
 
   console.log(
-    `Found ${existing.length} existing monitor(s) on the account. ` +
-      `Ensuring ${PILOT_COMPETITORS.length} pilot monitor(s): schedule="${schedule}" (${timezone}), ` +
-      `${webhookUrl ? 'email + webhook' : 'email only'} delivery.\n`,
+    `Found ${existing.length} existing monitor(s). Upserting ${PILOT_COMPETITORS.length} pilot ` +
+      `monitor(s): schedule="${schedule}" (${timezone}), ` +
+      `${webhookUrl ? 'email + webhook(+metadata)' : 'email only'} delivery.\n`,
   );
 
   const owned: Array<{ name: string; id: string }> = [];
 
   for (const competitor of PILOT_COMPETITORS) {
-    const name = `${MONITOR_NAME_PREFIX}${competitor.slug}`;
-
+    const name = monitorName(competitor);
+    const config = buildConfig(competitor);
     const existingId = idByName.get(name);
-    if (existingId !== undefined) {
-      console.log(`= skip    ${name} — already exists (id=${existingId || '?'})`);
+
+    if (existingId) {
+      const updated: any = await withRateLimitRetry(`updateMonitor ${name}`, () =>
+        firecrawl.updateMonitor(existingId, config),
+      );
+      console.log(`~ updated ${name} — id=${existingId} status=${updated?.status ?? 'ok'}`);
       owned.push({ name, id: existingId });
       continue;
     }
 
-    const monitor: any = await withRateLimitRetry(`createMonitor ${name}`, () =>
-      firecrawl.createMonitor({
-        name,
-        schedule: { text: schedule, timezone },
-        goal: JUDGE_GOAL,
-        notification: {
-          email: { enabled: true, recipients: [alertEmail], includeDiffs: true },
-        },
-        ...(webhookUrl
-          ? { webhook: { url: webhookUrl, events: ['monitor.page', 'monitor.check.completed'] } }
-          : {}),
-        targets: [{ type: 'scrape', urls: competitor.urls }],
-      }),
+    const created: any = await withRateLimitRetry(`createMonitor ${name}`, () =>
+      firecrawl.createMonitor(config),
     );
-
     console.log(
-      `+ created ${name} — id=${monitor.id} status=${monitor.status ?? '?'} ` +
-        `nextRunAt=${monitor.nextRunAt ?? '?'} estCredits/mo=${monitor.estimatedCreditsPerMonth ?? '?'}`,
+      `+ created ${name} — id=${created.id} status=${created.status ?? '?'} ` +
+        `nextRunAt=${created.nextRunAt ?? '?'} estCredits/mo=${created.estimatedCreditsPerMonth ?? '?'}`,
     );
-    owned.push({ name, id: monitor.id });
+    owned.push({ name, id: created.id });
   }
 
   if (runNow) {
@@ -133,7 +148,7 @@ async function main(): Promise<void> {
         const res: any = await withRateLimitRetry(`runMonitor ${name}`, () =>
           firecrawl.runMonitor(id),
         );
-        console.log(`  ▶ ${name} — check triggered (${JSON.stringify(res)})`);
+        console.log(`  ▶ ${name} — check triggered (id=${res?.id ?? '?'} status=${res?.status ?? '?'})`);
       } catch (err) {
         console.log(`  ! ${name} — runMonitor failed: ${(err as Error).message}`);
       }

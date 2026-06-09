@@ -1,0 +1,30 @@
+{
+  "success": true,
+  "type": "monitor.page",
+  "webhookId": "1ed2ba63-7378-4eb2-8635-6cee3211712a",
+  "id": "019ea945-5d46-771f-9d16-c1d84715a96d",
+  "data": [
+    {
+      "checkId": "019ea945-5d46-771f-9d16-c1d84715a96d",
+      "currentScrapeId": "019ea945-5ec6-706a-a874-33e6e949683d",
+      "diff": null,
+      "error": null,
+      "isMeaningful": null,
+      "judgment": null,
+      "monitorId": "019ea90a-91e0-708e-b9a8-5d7875af5cb9",
+      "previousScrapeId": null,
+      "status": "new",
+      "url": "https://www.housecallpro.com/pricing/"
+    }
+  ],
+  "metadata": {
+    "source": "comp-intel",
+    "tier": "Major",
+    "competitor": "housecall-pro",
+    "category": "FSM Platform",
+    "schemaVersion": "1",
+    "competitorName": "Housecall Pro",
+    "knownAiProducts": "CSR AI, AI Team, Analyst AI, Coach AI, Marketing AI",
+    "surfaces": "{\"https://www.housecallpro.com/features/ai-team/\":\"ai\",\"https://www.housecallpro.com/about/newsroom/\":\"newsroom\",\"https://www.housecallpro.com/pricing/\":\"pricing\"}"
+  }
+}

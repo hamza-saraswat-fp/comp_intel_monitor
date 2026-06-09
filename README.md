@@ -30,7 +30,7 @@ cp .env.example .env     # then fill in FIRECRAWL_API_KEY, ALERT_EMAIL, (optiona
 npm run create-monitors
 ```
 
-The script is **idempotent** — it skips monitors that already exist (matched by name `comp-intel/<slug>`), so it's safe to re-run after editing the URL list.
+The script is an **idempotent upsert** — it updates monitors that already exist (matched by name `comp-intel/<slug>`) and creates the rest, so it's safe to re-run after editing the URL list, judge goal, or metadata.
 
 **Verify:** set `RUN_NOW=true` in `.env` and run `npm run create-monitors` — it triggers an immediate check on each monitor (no need to wait for the daily schedule). Confirm an email and a `webhook.site` POST arrive within a couple of minutes, then unset `RUN_NOW` for normal runs.
 
@@ -41,6 +41,11 @@ The script is **idempotent** — it skips monitors that already exist (matched b
 MVP in progress. **Source of truth:** the [Competitor Intel MVP write-up](https://linear.app/fieldpulse/document/competitor-intel-mvp-write-up-source-of-truth-fd7e4a879726) and the **Competitor Intel** project (team Ai Ops) in Linear.
 
 Tech stack: Node/TS (Firecrawl JS SDK). The webhook receiver/queue and deployment target (likely Railway) are **TBD** — built in AIO-162.
+
+## Docs
+
+- [`docs/firecrawl-payloads.md`](docs/firecrawl-payloads.md) — webhook payload reference + the **agent input contract** (what the Managed Agent reads), plus the metadata we attach. Real samples in [`docs/samples/`](docs/samples/).
+- [`docs/signal-validation.md`](docs/signal-validation.md) — the go/no-go writeup + retro sanity-check.
 
 ## Working in this repo
 
