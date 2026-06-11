@@ -1,0 +1,44 @@
+{
+  "_note": "DEMO fixture with REAL content: ServiceTitan's Atlas (AI sidekick) genuinely exists on the Titan Intelligence page but is NOT in our seeded Memory baseline — so the agent web-verifies it as real, finds it absent from Memory, and classifies SIGNIFICANT. Only the 'this changed today' timing is simulated; the feature, page, and URL are real (noted in docs/signal-validation.md retro).",
+  "success": true,
+  "type": "monitor.page",
+  "webhookId": "a7d31b22-0000-4000-8000-000000000002",
+  "id": "019eab11-0000-7000-bbbb-000000000001",
+  "data": [
+    {
+      "checkId": "019eab11-0000-7000-bbbb-000000000001",
+      "currentScrapeId": "019eab11-1111-7000-bbbb-000000000002",
+      "previousScrapeId": "019eaa11-2222-7000-bbbb-000000000003",
+      "monitorId": "019ea90a-0000-708e-b9a8-5d7875af5cb9",
+      "url": "https://www.servicetitan.com/features/titan-intelligence",
+      "status": "changed",
+      "error": null,
+      "isMeaningful": true,
+      "judgment": {
+        "meaningful": true,
+        "confidence": "high",
+        "reason": "Net-new AI assistant. The Titan Intelligence page adds a section for 'Atlas', described as an AI sidekick built into ServiceTitan that answers questions about your business, surfaces insights from your data, and takes action across workflows. This is a concrete AI assistant/copilot feature, not present in the known products list (Titan Intelligence, Dispatch Pro, Marketing Pro, Fleet Pro), and not marketing copy.",
+        "meaningfulChanges": [
+          {
+            "type": "added",
+            "after": "Meet Atlas — your AI sidekick in ServiceTitan. Ask Atlas questions about your business, get instant insights from your data, and let it take action across your workflows.",
+            "reason": "New AI assistant/copilot feature added to the Titan Intelligence suite page."
+          }
+        ]
+      },
+      "diff": {
+        "text": "@@ -24,6 +24,16 @@\n ## Titan Intelligence\n \n Real AI solutions delivering real results for the trades.\n \n+### Meet Atlas — your AI sidekick in ServiceTitan\n+\n+Ask Atlas questions about your business and get instant, data-backed answers.\n+Atlas surfaces insights from your jobs, memberships, and marketing data, and can\n+take action across your ServiceTitan workflows — so every role in your shop gets\n+answers without digging through reports.\n+\n+[Learn more about Atlas](https://www.servicetitan.com/features/titan-intelligence)\n+\n ### Dispatch Pro\n \n Smart dispatching that pairs the right tech with the right job."
+      }
+    }
+  ],
+  "metadata": {
+    "source": "comp-intel",
+    "schemaVersion": "1",
+    "competitor": "servicetitan",
+    "competitorName": "ServiceTitan",
+    "tier": "Major",
+    "category": "FSM Platform",
+    "knownAiProducts": "Titan Intelligence, Dispatch Pro, Marketing Pro, Fleet Pro",
+    "surfaces": "{\"https://help.servicetitan.com/landing-page/release-notes-home\":\"changelog\",\"https://www.servicetitan.com/features/titan-intelligence\":\"ai\",\"https://www.servicetitan.com/blog/product-announcements\":\"blog\",\"https://www.servicetitan.com/pricing\":\"pricing\"}"
+  }
+}

@@ -21,7 +21,11 @@ SIGNIFICANT launches to `#competitor-ai`.
 | [`src/scripts/seed-memory.ts`](../src/scripts/seed-memory.ts) | Creates + seeds the Memory Store, one baseline record per pilot competitor. (AIO-160) |
 | [`src/scripts/dry-run.ts`](../src/scripts/dry-run.ts) | Runs the live agent against a sample payload and streams the result. (AIO-155 acceptance) |
 | [`src/scripts/test-input-contract.ts`](../src/scripts/test-input-contract.ts) | **Offline** test of the filter against the samples — no API key. The merge gate. |
-| [`samples/monitor.page.significant.example.json`](./samples/monitor.page.significant.example.json) | Synthesized `meaningful:true` fixture (no real true-positive landed during the pilot). |
+| [`src/agent/slack.ts`](../src/agent/slack.ts) | Runner-side Slack delivery (`chat.postMessage` with the bot token). |
+| [`src/scripts/live-run.ts`](../src/scripts/live-run.ts) | **Live e2e**: triggers real Firecrawl checks → real webhooks → agent session → Slack (`--no-slack` to print instead). Bundle 2's receiver flow, run by hand. |
+| [`src/scripts/post-sample-brief.ts`](../src/scripts/post-sample-brief.ts) | Posts one hardcoded sample brief — format/wiring check only. |
+| [`samples/monitor.page.significant.example.json`](./samples/monitor.page.significant.example.json) | Synthesized **fictional** fixture — exercises the UNCLEAR/refuse-to-alert guardrail (web-verify finds nothing). |
+| [`samples/monitor.page.atlas.example.json`](./samples/monitor.page.atlas.example.json) | **Real-content** fixture (ServiceTitan Atlas, verifiable) — exercises the SIGNIFICANT → Slack → Memory-append path. Verified live 2026-06-11. |
 
 ## Agent vs. session (the mental model)
 
@@ -66,9 +70,17 @@ existing file (it won't clobber features the agent has appended).
 
 The per-item record (`FeatureRecord`) is the schema for both the Memory entry and the Slack
 brief: `competitor · what · kind (new/expansion/rebrand/announcement-only) · sourceUrl ·
-significance (high/med/low) · classification · firstSeen`. The agent composes the Slack
-message itself (via the Slack MCP) in the format described in `agent.yaml`; `brief.ts` is
-the canonical renderer for that shape.
+significance (high/med/low) · classification · firstSeen`. The agent ends its reply with the
+record(s) as a fenced JSON block; **the runner posts SIGNIFICANT ones to Slack** via
+`chat.postMessage` ([`src/agent/slack.ts`](../src/agent/slack.ts), rendered by
+[`brief.ts`](../src/agent/brief.ts)).
+
+> **Why the runner posts (verified 2026-06-11):** the hosted Slack MCP (`mcp.slack.com`)
+> only supports *interactive* OAuth via Slack's own client app — it cannot accept a bot
+> token, so a headless agent can't authenticate to it. A bot token + `chat.postMessage`
+> is the standard headless path. The `slack` entry still in `agent.yaml` is **vestigial**:
+> it produces a harmless, non-fatal `session.error` at session start (the runners log and
+> continue) and will be removed the next time we cut an agent version.
 
 ## The launch path
 
@@ -100,10 +112,10 @@ The code is built and offline-verified, but the live dry-run needs these one-tim
 2. **Create the agent** from `agent.yaml` (Console paste or `ant beta:agents create`) → `AGENT_ID`.
 3. **Create an environment** (cloud default is fine) → `ENVIRONMENT_ID`.
 4. **Seed Memory**: `npm run seed-memory` → `MEMORY_STORE_ID` (printed; add to `.env`).
-5. **Slack**: create `#competitor-ai`; create/install a Slack app (bot) scoped to
-   `chat:write` (+ invite it to the channel); register a **vault** holding its credential
-   → `SLACK_VAULT_ID`. Confirm whether the Slack MCP post tool needs a channel **id** vs
-   name and bake it in if so.
+5. **Slack**: create the target channel; create/install a Slack app (bot) scoped to
+   `chat:write`, invite it to the channel, and set `SLACK_BOT_TOKEN` (xoxb-…) +
+   `SLACK_CHANNEL` (name or C0… id) in `.env`. No vault needed — the runner posts
+   (see "Why the runner posts" above). `npm run post-sample-brief` fires one test brief.
 6. **Run the live dry-run** and confirm classify → post → Memory append, then the dedup
    re-run.
 
