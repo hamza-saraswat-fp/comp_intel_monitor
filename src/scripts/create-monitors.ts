@@ -8,8 +8,9 @@
 //   npm run create-monitors
 //
 // Required env: FIRECRAWL_API_KEY, ALERT_EMAIL
-// Optional env: WEBHOOK_SITE_URL (capture payloads + carry metadata), MONITOR_SCHEDULE,
-//               MONITOR_TIMEZONE, RUN_NOW=true (trigger an immediate check for verification).
+// Optional env: WEBHOOK_URL (the deployed receiver, e.g. https://<railway>/webhooks/firecrawl;
+//               falls back to legacy WEBHOOK_SITE_URL), MONITOR_SCHEDULE, MONITOR_TIMEZONE,
+//               RUN_NOW=true (trigger an immediate check for verification).
 //
 // Note: the Firecrawl plan rate-limits the monitor API (~3 req/min), so every API
 // call is wrapped in withRateLimitRetry, which honors the server's "retry after Ns".
@@ -69,7 +70,8 @@ function toMonitorArray(result: any): Array<{ id?: string; name?: string }> {
 async function main(): Promise<void> {
   const apiKey = requireEnv('FIRECRAWL_API_KEY');
   const alertEmail = requireEnv('ALERT_EMAIL');
-  const webhookUrl = process.env.WEBHOOK_SITE_URL?.trim() || undefined;
+  const webhookUrl =
+    process.env.WEBHOOK_URL?.trim() || process.env.WEBHOOK_SITE_URL?.trim() || undefined;
   const schedule = process.env.MONITOR_SCHEDULE?.trim() || 'daily';
   const timezone = process.env.MONITOR_TIMEZONE?.trim() || 'UTC';
   const runNow = /^(1|true|yes)$/i.test(process.env.RUN_NOW?.trim() ?? '');
