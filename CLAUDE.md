@@ -10,13 +10,13 @@ Two decoupled systems: **Firecrawl `/monitor`** (the eyes — daily scrape, diff
 
 **Source of truth:** the [Competitor Intel MVP write-up](https://linear.app/fieldpulse/document/competitor-intel-mvp-write-up-source-of-truth-fd7e4a879726) in Linear (local copy lives in the parent workspace as `Competitor-Intel-MVP.md`). If anything here conflicts with the spec, **the spec wins** — update both.
 
-**Scope discipline:** MVP only — 15 competitors, **batched daily** processing, **AI-related pricing changes only**, the `#competitor-ai` channel. Anything beyond the spec's MVP (dashboard/UI, manual intel entry, broader pricing/review monitoring, 75-competitor expansion, event-driven triggers) is **out of scope** until we explicitly decide otherwise.
+**Scope discipline:** MVP only — 15 competitors, **event-driven** processing (one agent session per webhook; revised 2026-06-10 from batched daily), **AI-related pricing changes only**, the `#competitor-ai` channel. Anything beyond the spec's MVP (dashboard/UI, manual intel entry, broader pricing/review monitoring, 75-competitor expansion, the weekly digest) is **out of scope** until we explicitly decide otherwise.
 
 ## Architecture (one-liner)
 
-Firecrawl `/monitor` (runs on Firecrawl infra — we don't schedule scrapes) → signed webhook (`monitor.page`, `monitor.check.completed`) → **our** receiver/queue → daily Managed Agent session drains the batch → verify / classify / dedup → post to `#competitor-ai`.
+Firecrawl `/monitor` (runs on Firecrawl infra — we don't schedule scrapes) → signed webhook (`monitor.page`, `monitor.check.completed`) → **our** receiver (`src/server.ts`: verifies `X-Firecrawl-Signature`, filters via the act-on rule, dedupes `webhookId`) → **one Managed Agent session per actionable change** → verify / classify / dedup vs Memory → receiver posts SIGNIFICANT briefs to `#competitor-ai` (the agent has no Slack tool — see `docs/agent.md` "Why the runner posts").
 
-The **only thing we host/run** is the webhook receiver + queue + the daily session trigger. The spec calls this "a small endpoint" — keep it minimal. Stack is **TBD**; deployment target **TBD (likely Railway)**. Decide both before building AIO-162.
+The **only thing we host/run** is the receiver — no queue, no scheduler. Stack: zero-dep `node:http` run via `tsx` (`npm start`). Deployed on **Railway** (project in Evan Ralliss's workspace); env vars per `.env.example`.
 
 > Do **not** reuse the old, deprecated comp-intel app (archived at https://github.com/fp-evan/competitor-intel). This is a clean rebuild — no Supabase / Inngest / Vercel / Next.js patterns carried over.
 

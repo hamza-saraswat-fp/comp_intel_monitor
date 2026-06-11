@@ -4,12 +4,15 @@
   "private": true,
   "description": "Competitor Intel — Firecrawl /monitor pilot, and (later) the webhook receiver + Managed Agent glue.",
   "scripts": {
+    "start": "tsx src/server.ts",
     "create-monitors": "tsx src/scripts/create-monitors.ts",
     "seed-memory": "tsx src/scripts/seed-memory.ts",
     "dry-run": "tsx src/scripts/dry-run.ts",
     "live-run": "tsx src/scripts/live-run.ts",
     "post-sample-brief": "tsx src/scripts/post-sample-brief.ts",
+    "update-agent": "tsx src/scripts/update-agent.ts",
     "test:input-contract": "tsx src/scripts/test-input-contract.ts",
+    "test:receiver": "tsx src/scripts/test-receiver.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -20,6 +23,7 @@
   "devDependencies": {
     "@types/node": "^25.9.2",
     "tsx": "^4.22.4",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "yaml": "^2.9.0"
   }
 }

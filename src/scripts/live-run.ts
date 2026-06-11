@@ -1,30 +1,26 @@
-// LIVE end-to-end test: real Firecrawl checks → real webhook payloads → real agent
-// session → Slack post for SIGNIFICANT items.
+// LIVE end-to-end test harness: real Firecrawl checks → real webhook payloads →
+// real agent session → Slack post for SIGNIFICANT items.
 //
-//   npm run live-run
+// ⚠️ SUPERSEDED by the deployed receiver (src/server.ts, AIO-162). This script polls
+// the webhook.site sink, which stops receiving once the monitors are repointed at
+// the receiver. Kept for ad-hoc testing if the monitors are ever pointed back at a
+// sink. Note: manually-triggered checks (runMonitor) proved slow/queued on Firecrawl's
+// side (>10 min observed 2026-06-11); the scheduled daily checks deliver reliably.
 //
-// What it does, in order:
-//   1. Triggers an immediate check on every comp-intel/* Firecrawl monitor.
-//   2. Polls webhook.site (our current webhook sink) until the checks complete.
-//   3. Applies the act-on filter to the REAL monitor.page payloads that arrived.
-//   4. If anything is actionable: runs the Managed Agent session on it (verify →
-//      classify → Memory dedup), then posts every SIGNIFICANT record to Slack.
-//   5. If nothing is actionable: says so — that's the judge correctly filtering noise.
-//
-// This is Bundle 2's receiver flow, run by hand. The receiver (AIO-162) automates
-// exactly this when a webhook arrives.
+//   npm run live-run               # full pipeline, posts SIGNIFICANT to Slack
+//   npm run live-run -- --no-slack # print briefs instead of posting
 //
 // Required env: FIRECRAWL_API_KEY, WEBHOOK_SITE_URL, ANTHROPIC_API_KEY, AGENT_ID,
-//               ENVIRONMENT_ID, MEMORY_STORE_ID, SLACK_BOT_TOKEN, SLACK_CHANNEL
+//               ENVIRONMENT_ID, MEMORY_STORE_ID (+ SLACK_BOT_TOKEN/SLACK_CHANNEL unless --no-slack)
 
 import 'dotenv/config';
 import Firecrawl from '@mendable/firecrawl-js';
-import Anthropic from '@anthropic-ai/sdk';
 import { MONITOR_NAME_PREFIX } from '../monitors/pilot';
 import { actionableInputs } from '../agent/input-contract';
 import { briefText } from '../agent/brief';
 import { postBriefToSlack } from '../agent/slack';
-import type { AgentChangeInput, FeatureRecord, MonitorPagePayload } from '../agent/types';
+import { runChanges } from '../agent/run-session';
+import type { MonitorPagePayload } from '../agent/types';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -87,54 +83,11 @@ async function fetchSinkRequests(token: string, sinceMs: number): Promise<Monito
   return out;
 }
 
-function userText(changes: AgentChangeInput[]): string {
-  return [
-    'Process the following REAL competitor page change(s) exactly per your instructions:',
-    'web-verify → classify (SIGNIFICANT/MINOR/UNCLEAR) → check Memory → for SIGNIFICANT',
-    'and genuinely new items, append to Memory.',
-    '',
-    'Your Slack tool is unavailable in this run — the runner posts for you. Instead,',
-    'END your reply with a fenced ```json code block containing an ARRAY of the',
-    'per-item records (the schema from your instructions) for ALL changes processed.',
-    '',
-    '```json',
-    JSON.stringify(changes, null, 2),
-    '```',
-  ].join('\n');
-}
-
-function messageText(event: unknown): string {
-  const e = event as { message?: { content?: unknown }; content?: unknown };
-  const content = e.message?.content ?? e.content;
-  if (typeof content === 'string') return content;
-  if (Array.isArray(content)) {
-    return content
-      .map((b) => (b && typeof b === 'object' && 'text' in b ? String((b as { text: unknown }).text) : ''))
-      .join('');
-  }
-  return '';
-}
-
-/** Pull the last fenced ```json block out of the agent's final message. */
-function parseRecords(text: string): FeatureRecord[] {
-  const blocks = [...text.matchAll(/```json\s*([\s\S]*?)```/g)].map((m) => m[1]);
-  if (!blocks.length) return [];
-  try {
-    const parsed = JSON.parse(blocks[blocks.length - 1]!.trim());
-    return Array.isArray(parsed) ? parsed : [parsed];
-  } catch {
-    return [];
-  }
-}
-
 async function main(): Promise<void> {
   const noSlack = process.argv.includes('--no-slack');
   const firecrawlKey = requireEnv('FIRECRAWL_API_KEY');
   const sinkUrl = requireEnv('WEBHOOK_SITE_URL');
-  const apiKey = requireEnv('ANTHROPIC_API_KEY');
-  const agentId = requireEnv('AGENT_ID');
-  const environmentId = requireEnv('ENVIRONMENT_ID');
-  const memoryStoreId = requireEnv('MEMORY_STORE_ID');
+  requireEnv('ANTHROPIC_API_KEY');
   const slackToken = noSlack ? '' : requireEnv('SLACK_BOT_TOKEN');
   const slackChannel = noSlack ? '' : requireEnv('SLACK_CHANNEL');
   if (noSlack) console.log('— Slack posting DISABLED (--no-slack): briefs print to the terminal —\n');
@@ -206,67 +159,11 @@ async function main(): Promise<void> {
   }
 
   // ── 4. The real agent session ─────────────────────────────────────────────
-  const client = new Anthropic({ apiKey });
-  const session = await client.beta.sessions.create({
-    agent: agentId,
-    environment_id: environmentId,
-    resources: [
-      {
-        type: 'memory_store',
-        memory_store_id: memoryStoreId,
-        access: 'read_write',
-        instructions:
-          'Per-competitor known-AI-feature records at /competitors/<slug>.md. Read the ' +
-          'matching file before alerting; append after alerting on a genuinely new feature.',
-      },
-    ],
-  });
-  console.log(`\nSession ${session.id} created. Streaming…\n`);
-
-  const stream = await client.beta.sessions.events.stream(session.id);
-  await client.beta.sessions.events.send(session.id, {
-    events: [{ type: 'user.message', content: [{ type: 'text', text: userText(changes) }] }],
-  });
-
-  let finalText = '';
-  for await (const event of stream) {
-    switch (event.type) {
-      case 'agent.message': {
-        const text = messageText(event).trim();
-        if (text) {
-          finalText = text;
-          console.log(`\n🧠 agent: ${text}\n`);
-        }
-        break;
-      }
-      case 'agent.thinking':
-        process.stdout.write('·');
-        break;
-      case 'agent.tool_use':
-      case 'agent.mcp_tool_use': {
-        const name =
-          (event as { tool_use?: { name?: string } }).tool_use?.name ?? event.type;
-        console.log(`🔧 tool: ${name}`);
-        break;
-      }
-      case 'session.error': {
-        const err = (event as { error?: { type?: string; mcp_server_name?: string; message?: string } }).error;
-        console.log(`⚠️  session.error${err?.mcp_server_name ? ` [${err.mcp_server_name}]` : ''}: ${err?.type ?? ''} (continuing)`);
-        break;
-      }
-      case 'session.status_idle':
-      case 'session.status_terminated':
-        console.log('\n✓ session complete.');
-        // exit the loop via stream end below
-        break;
-      default:
-        break;
-    }
-    if (event.type === 'session.status_idle' || event.type === 'session.status_terminated') break;
-  }
+  console.log('');
+  const { records } = await runChanges(changes);
+  console.log('\n✓ session complete.');
 
   // ── 5. Post SIGNIFICANT records to Slack ──────────────────────────────────
-  const records = parseRecords(finalText);
   if (!records.length) {
     console.log('\n✖ Could not parse the per-item record JSON from the agent reply — nothing posted.');
     return;

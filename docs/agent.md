@@ -6,9 +6,12 @@ classify it (SIGNIFICANT / MINOR / UNCLEAR), dedup against a Memory Store, and p
 SIGNIFICANT launches to `#competitor-ai`.
 
 > **Trigger model: event-driven.** Each Firecrawl webhook starts one agent session for
-> that change — no queue, no daily scheduler. (This overrides the spec's original
-> "batched daily" call; the spec + AIO-162 are updated as part of Bundle 2.) The receiver
-> that turns a webhook into a session is **Bundle 2 (AIO-162)** — not built yet.
+> that change — no queue, no daily scheduler. The receiver that turns a webhook into a
+> session is [`src/server.ts`](../src/server.ts) (AIO-162): it verifies
+> `X-Firecrawl-Signature` (HMAC-SHA256 of the raw body, timing-safe), ACKs 200 inside
+> Firecrawl's 10-second window, applies the act-on filter, dedupes `webhookId`, runs the
+> session in the background (concurrency-capped), and posts SIGNIFICANT records to Slack.
+> Deployed on Railway; monitors point at `https://<railway-domain>/webhooks/firecrawl`.
 
 ## What's in this bundle
 
@@ -22,6 +25,10 @@ SIGNIFICANT launches to `#competitor-ai`.
 | [`src/scripts/dry-run.ts`](../src/scripts/dry-run.ts) | Runs the live agent against a sample payload and streams the result. (AIO-155 acceptance) |
 | [`src/scripts/test-input-contract.ts`](../src/scripts/test-input-contract.ts) | **Offline** test of the filter against the samples — no API key. The merge gate. |
 | [`src/agent/slack.ts`](../src/agent/slack.ts) | Runner-side Slack delivery (`chat.postMessage` with the bot token). |
+| [`src/agent/run-session.ts`](../src/agent/run-session.ts) | **Shared session runner** — one implementation behind the receiver, dry-run, and live-run (create session → stream → parse records). |
+| [`src/server.ts`](../src/server.ts) | **The receiver (AIO-162)** — signed-webhook endpoint; one session per actionable change; posts SIGNIFICANT to Slack. The only thing we host. |
+| [`src/scripts/update-agent.ts`](../src/scripts/update-agent.ts) | Applies `agent.yaml` to the live agent (`agents.update` → new version). |
+| [`src/scripts/test-receiver.ts`](../src/scripts/test-receiver.ts) | Receiver verification — spawns the real server, replays samples with valid/tampered signatures (`--with-session` adds a real Atlas session). |
 | [`src/scripts/live-run.ts`](../src/scripts/live-run.ts) | **Live e2e**: triggers real Firecrawl checks → real webhooks → agent session → Slack (`--no-slack` to print instead). Bundle 2's receiver flow, run by hand. |
 | [`src/scripts/post-sample-brief.ts`](../src/scripts/post-sample-brief.ts) | Posts one hardcoded sample brief — format/wiring check only. |
 | [`samples/monitor.page.significant.example.json`](./samples/monitor.page.significant.example.json) | Synthesized **fictional** fixture — exercises the UNCLEAR/refuse-to-alert guardrail (web-verify finds nothing). |
@@ -78,9 +85,9 @@ record(s) as a fenced JSON block; **the runner posts SIGNIFICANT ones to Slack**
 > **Why the runner posts (verified 2026-06-11):** the hosted Slack MCP (`mcp.slack.com`)
 > only supports *interactive* OAuth via Slack's own client app — it cannot accept a bot
 > token, so a headless agent can't authenticate to it. A bot token + `chat.postMessage`
-> is the standard headless path. The `slack` entry still in `agent.yaml` is **vestigial**:
-> it produces a harmless, non-fatal `session.error` at session start (the runners log and
-> continue) and will be removed the next time we cut an agent version.
+> is the standard headless path. The vestigial `slack` MCP entry was **removed in agent
+> v2** (2026-06-11, `npm run update-agent`) — sessions no longer emit the startup
+> `session.error`; runners still treat any `session.error` as non-fatal per the MCP docs.
 
 ## The launch path
 

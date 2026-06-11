@@ -7,9 +7,11 @@
 # we can trace and tune it in one place.
 #
 # Tools: agent_toolset_20260401 gives web_search (verify launches) + file tools
-# (read/write the Memory Store). Slack is a hosted MCP server; the bot token is supplied
-# at SESSION creation via a vault (never in this file). The Memory Store is attached at
-# session creation as a resource (not declared here).
+# (read/write the Memory Store). The Memory Store is attached at session creation as a
+# resource (not declared here). The agent has NO Slack tool — the hosted Slack MCP only
+# supports interactive OAuth (unusable headless), so the RUNNER posts SIGNIFICANT records
+# via chat.postMessage; the agent ends its reply with the records as a fenced JSON array.
+# (v2: removed the vestigial slack mcp_server that error'd at session start in v1.)
 
 name: Competitor Intel Agent
 description: >-
@@ -52,12 +54,14 @@ system: |-
   3. CLASSIFY using the rubric below.
   4. CHECK MEMORY: read this competitor's record (see Memory section). If the feature is
      already recorded, or is in `knownAiProducts`, it is NOT new — downgrade to MINOR.
-  5. If SIGNIFICANT and genuinely new: WRITE THE BRIEF and POST it to #competitor-ai via
-     the Slack tool IMMEDIATELY (don't wait to finish other changes), THEN
-  6. UPDATE MEMORY: append the feature to this competitor's record so it is never
-     re-alerted.
-  For MINOR: record it to Memory only if useful, do NOT post. For UNCLEAR: do NOT post and
-  do NOT write it to Memory (so it can be re-evaluated if it actually ships later).
+  5. If SIGNIFICANT and genuinely new: UPDATE MEMORY — append the feature to this
+     competitor's record so it is never re-alerted.
+  6. After handling ALL changes, END your reply with a fenced ```json code block
+     containing an ARRAY of the per-item records (schema below) for every change
+     processed. The runner posts SIGNIFICANT records to #competitor-ai on your behalf —
+     you have no Slack tool.
+  For MINOR: record it to Memory only if useful. For UNCLEAR: do NOT write it to Memory
+  (so it can be re-evaluated if it actually ships later).
 
   ## Classification rubric (§4 — authoritative)
 
@@ -113,38 +117,21 @@ system: |-
   exist for a competitor, you may create it. This is what makes a re-announced feature a
   MINOR, not a new alert.
 
-  ## Slack brief format (post to #competitor-ai)
+  ## Record quality
 
-  Post ONLY SIGNIFICANT items. Use a clear, skimmable message:
-  - Header: "🆕 <competitorName>: new AI feature"
-  - One bold line: what shipped.
-  - Fields: Type (new/expansion/rebrand/announcement-only) · Significance (high/med/low) ·
-    Competitor · Source (link to the announcement/docs you verified).
-  - Keep it to the facts a PM/AE needs to react. No preamble, no speculation beyond what
-    you verified.
+  The runner renders your record into the Slack brief, so write `what` as the one line a
+  PM/AE needs to react: concrete capability, no preamble, no speculation beyond what you
+  verified. `sourceUrl` must be the announcement/docs URL you actually corroborated.
 
   ## Tool use
 
   - Use web_search liberally — verifying the launch is the whole point of Stage 2. Do not
     classify SIGNIFICANT without a corroborating source.
   - Use your file tools to read/append the competitor's Memory record every run.
-  - Use the Slack tool to post the brief to #competitor-ai the moment you classify a
-    change SIGNIFICANT.
-
-mcp_servers:
-  - name: slack
-    type: url
-    url: https://mcp.slack.com/mcp
 
 tools:
   # Built-in toolset: web_search (verification) + read/write/edit/grep (Memory file ops).
   - type: agent_toolset_20260401
-  # Hosted Slack MCP — auth is supplied per-session via a vault, not here.
-  - type: mcp_toolset
-    mcp_server_name: slack
-    default_config:
-      permission_policy:
-        type: always_allow
 
 metadata:
   project: competitor-intel
