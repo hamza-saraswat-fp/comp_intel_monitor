@@ -21,7 +21,9 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import Anthropic from '@anthropic-ai/sdk';
 import { actionableInputs } from '../agent/input-contract';
-import type { AgentChangeInput, MonitorPagePayload } from '../agent/types';
+import { briefText } from '../agent/brief';
+import { postBriefToSlack } from '../agent/slack';
+import type { AgentChangeInput, FeatureRecord, MonitorPagePayload } from '../agent/types';
 
 const DEFAULT_SAMPLE = 'docs/samples/monitor.page.significant.example.json';
 
@@ -37,14 +39,29 @@ function requireEnv(name: string): string {
 function userText(changes: AgentChangeInput[]): string {
   return [
     'Process the following competitor page change(s) exactly per your instructions:',
-    'web-verify → classify (SIGNIFICANT/MINOR/UNCLEAR) → check Memory → if SIGNIFICANT and',
-    'genuinely new, post the brief to #competitor-ai and append to Memory. After handling',
-    'all of them, print a short summary line per change with its final classification and kind.',
+    'web-verify → classify (SIGNIFICANT/MINOR/UNCLEAR) → check Memory → for SIGNIFICANT',
+    'and genuinely new items, append to Memory.',
+    '',
+    'Your Slack tool is unavailable in this run — the runner posts for you. Instead,',
+    'END your reply with a fenced ```json code block containing an ARRAY of the',
+    'per-item records (the schema from your instructions) for ALL changes processed.',
     '',
     '```json',
     JSON.stringify(changes, null, 2),
     '```',
   ].join('\n');
+}
+
+/** Pull the last fenced ```json block out of the agent's final message. */
+function parseRecords(text: string): FeatureRecord[] {
+  const blocks = [...text.matchAll(/```json\s*([\s\S]*?)```/g)].map((m) => m[1]);
+  if (!blocks.length) return [];
+  try {
+    const parsed = JSON.parse(blocks[blocks.length - 1]!.trim());
+    return Array.isArray(parsed) ? parsed : [parsed];
+  } catch {
+    return [];
+  }
 }
 
 /** Best-effort text extraction from a streamed agent.message event. */
@@ -106,11 +123,16 @@ async function main(): Promise<void> {
     events: [{ type: 'user.message', content: [{ type: 'text', text: userText(changes) }] }],
   });
 
+  let finalText = '';
+  let done = false;
   for await (const event of stream) {
     switch (event.type) {
       case 'agent.message': {
         const text = messageText(event).trim();
-        if (text) console.log(`\n🧠 agent: ${text}\n`);
+        if (text) {
+          finalText = text;
+          console.log(`\n🧠 agent: ${text}\n`);
+        }
         break;
       }
       case 'agent.thinking':
@@ -124,18 +146,59 @@ async function main(): Promise<void> {
         console.log(`🔧 tool: ${name}`);
         break;
       }
-      case 'session.error':
-        console.error('✖ session error:', JSON.stringify(event, null, 2));
-        return;
+      case 'session.error': {
+        // Non-fatal per the MCP connector docs: the session keeps running without
+        // that server's tools. Expected when an MCP (e.g. Slack) has no vault
+        // credential yet — the agent still classifies, it just can't post.
+        const err = (event as {
+          error?: { type?: string; mcp_server_name?: string; message?: string };
+        }).error;
+        console.log(
+          `⚠️  session.error${err?.mcp_server_name ? ` [${err.mcp_server_name}]` : ''}: ` +
+            `${err?.type ?? ''} — ${err?.message ?? ''}`,
+        );
+        console.log('   (continuing — the agent runs without that tool)\n');
+        break;
+      }
       case 'session.status_idle':
         console.log('\n✓ session idle — turn complete.');
-        return;
+        done = true;
+        break;
       case 'session.status_terminated':
         console.log('\n✓ session terminated.');
-        return;
+        done = true;
+        break;
       default:
         break;
     }
+    if (done) break;
+  }
+
+  // The runner posts SIGNIFICANT records (the agent's Slack MCP doesn't work headless).
+  const records = parseRecords(finalText);
+  if (!records.length) {
+    console.log('\n(no per-item record JSON found in the agent reply — nothing to post)');
+    return;
+  }
+  const slackToken = process.env.SLACK_BOT_TOKEN?.trim();
+  const slackChannel = process.env.SLACK_CHANNEL?.trim() || '#competitor-ai';
+  const noSlack = process.argv.includes('--no-slack') || !slackToken;
+  console.log(`\nRecords: ${records.map((r) => `${r.competitor}=${r.classification}`).join(', ')}`);
+  for (const record of records) {
+    if (record.classification !== 'SIGNIFICANT') {
+      console.log(`  — ${record.competitor}: ${record.classification} → no alert (correct)`);
+      continue;
+    }
+    if (noSlack) {
+      console.log(`  ✓ SIGNIFICANT → would post to Slack:\n    ${briefText(record)}`);
+      continue;
+    }
+    const result = await postBriefToSlack(record, { token: slackToken!, channel: slackChannel });
+    console.log(
+      result.ok
+        ? `  ✓ SIGNIFICANT → posted to Slack (ts=${result.ts})`
+        : `  ✖ Slack post failed: ${result.error}${result.error === 'not_in_channel' ? ' → /invite the bot to the channel and rerun' : ''}`,
+    );
   }
 }
 
