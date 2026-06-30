@@ -34,6 +34,9 @@ async function main(): Promise<void> {
     significance: 'high',
     classification: 'SIGNIFICANT',
     firstSeen: new Date().toISOString().slice(0, 10),
+    capability: 'customer-contact-agent',
+    capabilityConfidence: 'high',
+    suggestedStatus: 'shipped',
   };
 
   const result = await postBriefToSlack(sample, { token, channel });
