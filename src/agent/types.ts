@@ -107,10 +107,17 @@ export interface AgentChangeInput {
 export type FeatureKind = 'new' | 'expansion' | 'rebrand' | 'announcement-only';
 export type Significance = 'high' | 'med' | 'low';
 export type Classification = 'SIGNIFICANT' | 'MINOR' | 'UNCLEAR';
+export type OfferingStatus = 'shipped' | 'beta' | 'announced' | 'none';
+export type OfferingDepth = 'basic' | 'strong' | 'market_leading';
+
+export type { CapabilityId } from '../taxonomy';
+import type { CapabilityId } from '../taxonomy';
 
 /**
  * The structured record the agent produces per change. Used verbatim as the Slack
- * brief payload (AIO-161) and as the Memory Store entry (AIO-160).
+ * brief payload (AIO-161) and as the Memory Store entry (AIO-160). The capability tag
+ * (IAI-229) maps a detection to a dashboard offering cell; the optional suggested*
+ * fields let the OKF writer (IAI-231) draft a conservative matrix edit.
  */
 export interface FeatureRecord {
   /** Competitor slug. */
@@ -125,4 +132,10 @@ export interface FeatureRecord {
   classification: Classification;
   /** ISO-8601 date the feature was first recorded. */
   firstSeen: string;
+  /** One of the 7 OKF capabilities, or `none`/`uncertain`. (IAI-229) */
+  capability: CapabilityId;
+  capabilityConfidence?: Significance;
+  /** The cell change this detection implies, for the OKF writer to draft (flagged for human confirm). */
+  suggestedStatus?: OfferingStatus;
+  suggestedDepth?: OfferingDepth;
 }

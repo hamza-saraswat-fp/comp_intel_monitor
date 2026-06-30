@@ -5,6 +5,7 @@
 // render a record locally and available to Bundle 2 if it ever formats host-side.
 
 import type { FeatureRecord, FeatureKind, Significance } from './types';
+import { capabilityLabel } from '../taxonomy';
 
 const KIND_LABEL: Record<FeatureKind, string> = {
   new: 'New feature',
@@ -50,6 +51,7 @@ export function buildSlackBlocks(r: FeatureRecord): unknown[] {
           text: `*Significance:*\n${SIGNIFICANCE_EMOJI[r.significance]} ${r.significance.toUpperCase()}`,
         },
         { type: 'mrkdwn', text: `*Competitor:*\n${name}` },
+        { type: 'mrkdwn', text: `*Capability:*\n${capabilityLabel(r.capability)}` },
         { type: 'mrkdwn', text: `*Source:*\n<${r.sourceUrl}|announcement / docs>` },
       ],
     },
