@@ -22,6 +22,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import { actionableInputs } from './agent/input-contract';
 import { postBriefToSlack } from './agent/slack';
 import { runChanges } from './agent/run-session';
+import { openDetectionPr } from './writer/okf-pr';
 import type { AgentChangeInput, MonitorPagePayload } from './agent/types';
 
 function requireEnv(name: string): string {
@@ -42,6 +43,12 @@ for (const name of ['ANTHROPIC_API_KEY', 'AGENT_ID', 'ENVIRONMENT_ID', 'MEMORY_S
 }
 const PORT = Number(process.env.PORT) || 3000;
 const MAX_CONCURRENT = Number(process.env.MAX_CONCURRENT_SESSIONS) || 3;
+// Optional: a fine-grained PAT (contents + pull-requests: write) on the dashboard repo.
+// When set, each SIGNIFICANT detection opens a reviewed OKF PR in Comp_Intel_Dashboard
+// (IAI-231). Unset → that step is skipped; detection/Slack are unaffected.
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN?.trim();
+const OKF_REPO_OWNER = process.env.OKF_REPO_OWNER?.trim() || 'hamza-saraswat-fp';
+const OKF_REPO_NAME = process.env.OKF_REPO_NAME?.trim() || 'Comp_Intel_Dashboard';
 
 const startedAt = Date.now();
 
@@ -124,6 +131,23 @@ async function processChanges(changes: AgentChangeInput[], webhookId: string): P
           ? `${record.competitor}: SIGNIFICANT → posted to Slack (ts=${result.ts})`
           : `✖ ${record.competitor}: SIGNIFICANT but Slack post failed: ${result.error}`,
       );
+
+      // Best-effort: open a reviewed OKF detection PR in the dashboard repo (IAI-231).
+      // Wrapped so a git/API failure can NEVER affect detection or the Slack alert.
+      if (GITHUB_TOKEN) {
+        try {
+          const pr = await openDetectionPr(record, { token: GITHUB_TOKEN, owner: OKF_REPO_OWNER, repo: OKF_REPO_NAME });
+          log(
+            pr.ok
+              ? `${record.competitor}: detection PR → ${pr.prUrl} (${pr.matrixEdit})`
+              : `✖ ${record.competitor}: detection PR failed (non-fatal): ${pr.error}`,
+          );
+        } catch (err) {
+          log(`✖ ${record.competitor}: detection PR threw (non-fatal): ${(err as Error).message}`);
+        }
+      } else {
+        log(`${record.competitor}: GITHUB_TOKEN unset — skipping detection PR`);
+      }
     }
   } catch (err) {
     // No retry: if the change persists, the next daily check re-detects it.
